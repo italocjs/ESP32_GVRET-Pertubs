@@ -32,6 +32,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <esp32_mcp2517fd.h>
 #include <Preferences.h>
 #include <FastLED.h>
+#include <esp_efuse.h>
 #include "ELM327_Emulator.h"
 #include "SerialConsole.h"
 #include "wifi_manager.h"
@@ -243,13 +244,16 @@ void loadSettings()
 
     if (nvPrefs.getString("SSID", settings.SSID, 32) == 0)
     {
-        strcpy(settings.SSID, deviceName);
-        strcat(settings.SSID, "SSID");
+        // Generate SSID using MAC address format: sniffer_aabbccddeeff
+        uint8_t mac[6];
+        esp_efuse_mac_get_default(mac);
+        snprintf(settings.SSID, 32, "sniffer_%02x%02x%02x%02x%02x%02x", 
+                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     }
 
     if (nvPrefs.getString("wpa2Key", settings.WPA2Key, 64) == 0)
     {
-        strcpy(settings.WPA2Key, "aBigSecret");
+        strcpy(settings.WPA2Key, "12345678");
     }
     if (nvPrefs.getString("btname", settings.btName, 32) == 0)
     {

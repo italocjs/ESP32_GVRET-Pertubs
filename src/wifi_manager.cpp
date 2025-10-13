@@ -49,7 +49,7 @@ void WiFiManager::setup()
     {
         WiFi.mode(WIFI_AP);
         WiFi.setSleep(true);
-        WiFi.softAP((const char *)settings.SSID, (const char *)settings.WPA2Key);
+        WiFi.softAP((const char *)settings.SSID); // No password for open network
         if (SysSettings.fancyLED)
         {
             leds[SysSettings.LED_CONNECTION_STATUS] = CRGB::Green;
