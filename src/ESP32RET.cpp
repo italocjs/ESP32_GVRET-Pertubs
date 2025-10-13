@@ -97,8 +97,8 @@ void loadSettings()
 #ifdef CONFIG_IDF_TARGET_ESP32S3
     defaultVal = 3;
 #endif
-    settings.systemType = nvPrefs.getUChar("systype", defaultVal);
-
+    // settings.systemType = nvPrefs.getUChar("systype", defaultVal);
+    settings.systemType = 1; //force EVTV ESP32 for now
     if (settings.systemType == 0)
     {
         Logger::console("Running on Macchina A0");
@@ -156,6 +156,9 @@ void loadSettings()
         strcpy(deviceName, EVTV_NAME);
         strcpy(otaHost, "media3.evtv.me");
         strcpy(otaFilename, "/esp32ret.bin");
+        #define CAN_RX GPIO_NUM_19
+        #define CAN_TX GPIO_NUM_18
+        CAN0.setCANPins(GPIO_NUM_19, GPIO_NUM_18);
     }
 
     if (settings.systemType == 2)
