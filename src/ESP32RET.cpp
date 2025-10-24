@@ -265,11 +265,11 @@ void loadSettings()
     for (int i = 0; i < SysSettings.numBuses; i++)
     {
         sprintf(buff, "can%ispeed", i);
-        settings.canSettings[i].nomSpeed = nvPrefs.getUInt(buff, 500000);
+        settings.canSettings[i].nomSpeed = nvPrefs.getUInt(buff, 250000); // Default to 250k to avoid conflicts with different speed devices
         sprintf(buff, "can%i_en", i);
         settings.canSettings[i].enabled = nvPrefs.getBool(buff, (i < 2)?true:false);
         sprintf(buff, "can%i-listenonly", i);
-        settings.canSettings[i].listenOnly = nvPrefs.getBool(buff, false);
+        settings.canSettings[i].listenOnly = nvPrefs.getBool(buff, true); // Default to listen-only to avoid interfering with existing traffic
         sprintf(buff, "can%i-fdspeed", i);
         settings.canSettings[i].fdSpeed = nvPrefs.getUInt(buff, 5000000);
         sprintf(buff, "can%i-fdmode", i);

@@ -6,6 +6,18 @@ Reverse Engineering Tool running on ESP32 based hardware. Supports both EVTV ESP
 There is a precompiled binary version of this program here:
 https://www.savvycan.com/ESP32RET_Updater.zip
 
+## Changes Made in This Fork
+
+This fork includes several improvements and modifications to make the ESP32RET more robust and easier to use:
+
+1. **PlatformIO Compatibility**: Made the project compatible with PlatformIO for easier compilation and dependency management
+2. **CAN Bus Pin Configuration**: Changed CAN bus pins to GPIO 16 (RX) and GPIO 17 (TX) for better hardware compatibility
+3. **Conservative Default Settings**: Changed startup configuration to:
+   - Default CAN speed: 250k baud (was 500k) - more conservative and widely compatible
+   - Default mode: Listen-only (was normal transmit) - prevents interference with existing CAN traffic in case of wrong speed selected.
+4. **Unique WiFi SSID**: WiFi hotspot name now includes the device MAC address (format: `sniffer_aabbccddeeff`) to avoid conflicts when multiple devices are nearby
+ 
+These changes make the device safer to connect to existing CAN networks and more resilient in multi-device environments.
 
 #### Requirements:
 
