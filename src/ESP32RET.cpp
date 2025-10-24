@@ -383,7 +383,8 @@ void loop()
     size_t maxLength = (wifiLength>serialLength) ? wifiLength : serialLength;
 
     //If the max time has passed or the buffer is almost filled then send buffered data out
-    if ((micros() - lastFlushMicros > SER_BUFF_FLUSH_INTERVAL) || (maxLength > (WIFI_BUFF_SIZE - 40)) ) 
+    //Reduced threshold for high traffic scenarios
+    if ((micros() - lastFlushMicros > SER_BUFF_FLUSH_INTERVAL) || (maxLength > (WIFI_BUFF_SIZE - 200)) ) 
     {
         lastFlushMicros = micros();
         if (serialLength > 0) 

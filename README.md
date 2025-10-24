@@ -11,13 +11,13 @@ https://www.savvycan.com/ESP32RET_Updater.zip
 This fork includes several improvements and modifications to make the ESP32RET more robust and easier to use:
 
 1. **PlatformIO Compatibility**: Made the project compatible with PlatformIO for easier compilation and dependency management
-2. **CAN Bus Pin Configuration**: Changed CAN bus pins to GPIO 16 (RX) and GPIO 17 (TX) for better hardware compatibility
+2. **CAN Bus Pin Configuration**: Changed CAN bus pins to GPIO 16 (RX) and GPIO 17 (TX) ESP32WROOM32 hardware compatibility
 3. **Conservative Default Settings**: Changed startup configuration to:
-   - Default CAN speed: 250k baud (was 500k) - more conservative and widely compatible
-   - Default mode: Listen-only (was normal transmit) - prevents interference with existing CAN traffic in case of wrong speed selected.
+   - Default CAN speed: 250k baud (was 500k) - 250k is more common in heavy machinery and trucks, while 500k is more common on light vehicles.
+   - Default mode: Listen-only (was normal transmit) - prevents interference with existing CAN traffic in case of wrong speed selected by the default (before connecting to gvret).
 4. **Unique WiFi SSID**: WiFi hotspot name now includes the device MAC address (format: `sniffer_aabbccddeeff`) to avoid conflicts when multiple devices are nearby
- 
-These changes make the device safer to connect to existing CAN networks and more resilient in multi-device environments.
+ 4. **Reduced buffer size for WiFi and Serial**: Connection was previously working for 3-4 seconds then dropping, reducing the buffer made it more stable. 
+
 
 #### Requirements:
 

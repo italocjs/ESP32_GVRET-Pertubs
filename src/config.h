@@ -37,17 +37,18 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <Preferences.h>
 
 //size to use for buffering writes to USB. On the ESP32 we're actually talking TTL serial to a TTL<->USB chip
-#define SER_BUFF_SIZE       1024
+#define SER_BUFF_SIZE       512
 
 //Buffer for CAN frames when sending over wifi. This allows us to build up a multi-frame packet that goes
 //over the air all at once. This is much more efficient than trying to send a new TCP/IP packet for each and every
 //frame. It delays frames from getting to the other side a bit but that's life.
 //Probably don't set this over 2048 as the default packet size for wifi is 2312 including all overhead.
-#define WIFI_BUFF_SIZE      2048
+#define WIFI_BUFF_SIZE      512
 
 //Number of microseconds between hard flushes of the serial buffer (if not in wifi mode) or the wifi buffer (if in wifi mode)
 //This keeps the latency more consistent. Otherwise the buffer could partially fill and never send.
-#define SER_BUFF_FLUSH_INTERVAL 20000
+//Reduced to 10ms for better high-traffic handling
+#define SER_BUFF_FLUSH_INTERVAL 10000
 
 #define CFG_BUILD_NUM   618
 #define CFG_VERSION "Alpha Nov 29 2020"
