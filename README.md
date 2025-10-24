@@ -15,9 +15,19 @@ This fork includes several improvements and modifications to make the ESP32RET m
 3. **Conservative Default Settings**: Changed startup configuration to:
    - Default CAN speed: 250k baud (was 500k) - 250k is more common in heavy machinery and trucks, while 500k is more common on light vehicles.
    - Default mode: Listen-only (was normal transmit) - prevents interference with existing CAN traffic in case of wrong speed selected by the default (before connecting to gvret).
-4. **Unique WiFi SSID**: WiFi hotspot name now includes the device MAC address (format: `sniffer_aabbccddeeff`) to avoid conflicts when multiple devices are nearby
+4. **Unique WiFi SSID**: WiFi hotspot name now includes the device MAC address (format: `sniffer_aabbccddeeff`) to avoid conflicts when multiple devices are nearby, password was removed.
  4. **Reduced buffer size for WiFi and Serial**: Connection was previously working for 3-4 seconds then dropping, reducing the buffer made it more stable. 
 
+## For OTA upload
+You can use the following command to flash via wifi.
+```
+pio run --target upload --upload-port 192.168.4.1
+```
+or add the following lines to platformio.ini and use the flash button.
+```
+upload_protocol = espota
+upload_port = 192.168.4.1
+```
 
 #### Requirements:
 
