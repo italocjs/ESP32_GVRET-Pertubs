@@ -292,8 +292,8 @@ void setup()
     //to deal with this issue.
     Serial.setTxTimeoutMs(2);
 #endif
-    Serial.begin(1000000); //for production
-    //Serial.begin(115200); //for testing
+    // Serial.begin(1000000); //for production
+    Serial.begin(250000); //for testing
     //delay(2000); //just for testing. Don't use in production
 
     espChipRevision = ESP.getChipRevision();
@@ -351,6 +351,21 @@ void sendMarkTriggered(int which)
     canManager.displayFrame(frame, 0);
 }
 
+#include <esp_task_wdt.h>
+void setupWatchdog()
+{
+    //Setup the hardware watchdog to reset the system if we get stuck somewhere
+    //especially useful when CAN bus is misconfigured and things go wrong
+    //The timeout is set to 8 seconds here
+    esp_task_wdt_init(8, true); //enable panic so ESP32 restarts
+    esp_task_wdt_add(NULL); //add current thread to WDT watch
+}
+
+void feedWatchdog()
+{
+    esp_task_wdt_reset();
+}
+
 /*
 Loop executes as often as possible all the while interrupts fire in the background.
 The serial comm protocol is as follows:
@@ -365,6 +380,7 @@ fastest and safest with limited function calls
 */
 void loop()
 {
+    feedWatchdog();
     //uint32_t temp32;    
     bool isConnected = false;
     int serialCnt;
@@ -389,11 +405,17 @@ void loop()
         lastFlushMicros = micros();
         if (serialLength > 0) 
         {
+            Serial.print("[Loop] Flushing ");
+            Serial.print(serialLength);
+            Serial.println(" serial bytes");
             Serial.write(serialGVRET.getBufferedBytes(), serialLength);
             serialGVRET.clearBufferedBytes();
         }
         if (wifiLength > 0)
         {
+            Serial.print("[Loop] Flushing ");
+            Serial.print(wifiLength);
+            Serial.println(" WiFi bytes");
             wifiManager.sendBufferedData();
         }
     }
@@ -407,4 +429,15 @@ void loop()
     }
 
     elmEmulator.loop();
+    //every 1s print ping/pong message
+    static uint32_t lastPingPong = 0;
+    if (millis() - lastPingPong > 15000)
+    {
+        lastPingPong = millis();
+        static bool isPing= false;
+        isPing = !isPing;
+        if (isPing) Serial.println("ping");
+        else Serial.println("pong");
+    }
+
 }

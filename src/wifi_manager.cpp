@@ -23,32 +23,41 @@ void WiFiManager::setup()
     {        
         Serial.println("Attempting to connect to a WiFi AP.");
         WiFi.mode(WIFI_STA);
-        WiFi.setSleep(true); //sleeping could cause delays
+        WiFi.setSleep(false); //disable power save to avoid websocket stalls
         WiFi.begin((const char *)settings.SSID, (const char *)settings.WPA2Key);
 
-        WiFiEventId_t eventID = WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) 
-        {
-           if (SysSettings.fancyLED)
-           {
-               leds[SysSettings.LED_CONNECTION_STATUS] = CRGB::Red;
-               FastLED.show();
-           }
-           Serial.print("WiFi lost connection. Reason: ");
-           Serial.println(info.wifi_sta_disconnected.reason);
-           SysSettings.isWifiConnected = false;
-           if ( (info.wifi_sta_disconnected.reason == 202) || (info.wifi_sta_disconnected.reason == 3)) 
-           {
-              Serial.println("Connection failed, rebooting to fix it.");
-              esp_sleep_enable_timer_wakeup(10);
-              esp_deep_sleep_start();
-              delay(100);
-           }
-        }, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+          WiFiEventId_t eventID = WiFi.onEvent([](WiFiEvent_t event, WiFiEventInfo_t info) 
+          {
+              static uint8_t wifiRetries = 0; //tracks back-to-back failures
+              if (SysSettings.fancyLED)
+              {
+                    leds[SysSettings.LED_CONNECTION_STATUS] = CRGB::Red;
+                    FastLED.show();
+              }
+              Serial.print("WiFi lost connection. Reason: ");
+              Serial.println(info.wifi_sta_disconnected.reason);
+              SysSettings.isWifiConnected = false;
+              wifiRetries++;
+              if (wifiRetries <= 5)
+              {
+                  Serial.print("[WiFi] Reconnecting attempt ");
+                  Serial.println(wifiRetries);
+                  WiFi.reconnect();
+              }
+              else
+              {
+                  Serial.println("[WiFi] Reconnect attempts exceeded, restarting connection sequence");
+                  wifiRetries = 0;
+                  WiFi.disconnect(true, true);
+                  delay(50);
+                  WiFi.begin((const char *)settings.SSID, (const char *)settings.WPA2Key);
+              }
+          }, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
     }
     if (settings.wifiMode == 2) //BE an AP
     {
         WiFi.mode(WIFI_AP);
-        WiFi.setSleep(true);
+        WiFi.setSleep(false); //keep radio awake for stable client sockets
         WiFi.softAP((const char *)settings.SSID); // No password for open network
         if (SysSettings.fancyLED)
         {
@@ -148,17 +157,26 @@ void WiFiManager::loop()
             {
                 if (wifiServer.hasClient())
                 {
+                    Serial.println("[WiFi] Client connection request received");
                     for(i = 0; i < MAX_CLIENTS; i++)
                     {
                         if (!SysSettings.clientNodes[i] || !SysSettings.clientNodes[i].connected())
                         {
-                            if (SysSettings.clientNodes[i]) SysSettings.clientNodes[i].stop();
+                            if (SysSettings.clientNodes[i]) 
+                            {
+                                Serial.print("[WiFi] Stopping old client ");
+                                Serial.println(i);
+                                SysSettings.clientNodes[i].stop();
+                            }
                             SysSettings.clientNodes[i] = wifiServer.available();
-                            if (!SysSettings.clientNodes[i]) Serial.println("Couldn't accept client connection!");
+                            if (!SysSettings.clientNodes[i]) 
+                            {
+                                Serial.println("[WiFi] ERROR: Couldn't accept client connection!");
+                            }
                             else 
                             {
-                                Serial.print("New client: ");
-                                Serial.print(i); Serial.print(' ');
+                                Serial.print("[WiFi] New GVRET client accepted at slot ");
+                                Serial.print(i); Serial.print(" IP: ");
                                 Serial.println(SysSettings.clientNodes[i].remoteIP());
                                 if (SysSettings.fancyLED)
                                 {
@@ -170,6 +188,7 @@ void WiFiManager::loop()
                     }
                     if (i >= MAX_CLIENTS) {
                         //no free/disconnected spot so reject
+                        Serial.println("[WiFi] No free client slots, rejecting connection");
                         wifiServer.available().stop();
                     }
                 }
@@ -205,20 +224,30 @@ void WiFiManager::loop()
                         if(SysSettings.clientNodes[i].available())
                         {
                             //get data from the telnet client and push it to input processing
+                            size_t dataCount = 0;
                             while(SysSettings.clientNodes[i].available()) 
                             {
                                 uint8_t inByt;
                                 inByt = SysSettings.clientNodes[i].read();
                                 SysSettings.isWifiActive = true;
+                                dataCount++;
                                 //Serial.write(inByt); //echo to serial - just for debugging. Don't leave this on!
                                 wifiGVRET.processIncomingByte(inByt);
                             }
+                            Serial.print("[WiFi] Client ");
+                            Serial.print(i);
+                            Serial.print(" received ");
+                            Serial.print(dataCount);
+                            Serial.println(" bytes");
                         }
                     }
                     else
                     {
                         if (SysSettings.clientNodes[i]) 
                         {
+                            Serial.print("[WiFi] Client ");
+                            Serial.print(i);
+                            Serial.println(" disconnected, cleaning up");
                             SysSettings.clientNodes[i].stop();
                             if (SysSettings.fancyLED)
                             {
@@ -257,7 +286,7 @@ void WiFiManager::loop()
             {
                 if (settings.wifiMode == 1)
                 {
-                    Serial.println("WiFi disconnected. Bummer!");
+                    Serial.println("[WiFi] WiFi disconnected. Attempting reconnection...");
                     SysSettings.isWifiConnected = false;
                     SysSettings.isWifiActive = false;
                     if (SysSettings.fancyLED)
@@ -284,13 +313,26 @@ void WiFiManager::loop()
 
 void WiFiManager::sendBufferedData()
 {
-    for(int i = 0; i < MAX_CLIENTS; i++)
+    size_t wifiLength = wifiGVRET.numAvailableBytes();
+    if (wifiLength > 0)
     {
-        size_t wifiLength = wifiGVRET.numAvailableBytes();
         uint8_t* buff = wifiGVRET.getBufferedBytes();
-        if (SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected())
+        int clientsSent = 0;
+        for(int i = 0; i < MAX_CLIENTS; i++)
         {
-            SysSettings.clientNodes[i].write(buff, wifiLength);
+            if (SysSettings.clientNodes[i] && SysSettings.clientNodes[i].connected())
+            {
+                size_t written = SysSettings.clientNodes[i].write(buff, wifiLength);
+                Serial.print("[WiFi] Sent ");
+                Serial.print(written);
+                Serial.print(" bytes to client ");
+                Serial.println(i);
+                clientsSent++;
+            }
+        }
+        if (clientsSent == 0)
+        {
+            Serial.println("[WiFi] WARNING: Have data to send but no connected clients!");
         }
     }
     wifiGVRET.clearBufferedBytes();

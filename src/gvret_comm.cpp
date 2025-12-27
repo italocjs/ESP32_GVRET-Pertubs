@@ -25,10 +25,12 @@ void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
     case IDLE:
         if(in_byte == 0xF1)
         {
+            Serial.println("[GVRET] Received 0xF1, expecting command");
             state = GET_COMMAND;
         }
         else if(in_byte == 0xE7)
         {
+            Serial.println("[GVRET] Received 0xE7, switching to binary mode");
             settings.useBinarySerialComm = true;
             SysSettings.lawicelMode = false;
             //setPromiscuousMode(); //going into binary comm will set promisc. mode too.
@@ -42,11 +44,13 @@ void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
         switch(in_byte)
         {
         case PROTO_BUILD_CAN_FRAME:
+            Serial.println("[GVRET] Command: BUILD_CAN_FRAME");
             state = BUILD_CAN_FRAME;
             buff[0] = 0xF1;
             step = 0;
             break;
         case PROTO_TIME_SYNC:
+            Serial.println("[GVRET] Command: TIME_SYNC");
             state = TIME_SYNC;
             step = 0;
             transmitBuffer[transmitBufferLength++] = 0xF1;
@@ -57,6 +61,7 @@ void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
             transmitBuffer[transmitBufferLength++] = (uint8_t) (now >> 24);
             break;
         case PROTO_DIG_INPUTS:
+            Serial.println("[GVRET] Command: DIG_INPUTS");
             //immediately return the data for digital inputs
             temp8 = 0; //getDigital(0) + (getDigital(1) << 1) + (getDigital(2) << 2) + (getDigital(3) << 3) + (getDigital(4) << 4) + (getDigital(5) << 5);
             transmitBuffer[transmitBufferLength++] = 0xF1;
@@ -67,6 +72,7 @@ void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
             state = IDLE;
             break;
         case PROTO_ANA_INPUTS:
+            Serial.println("[GVRET] Command: ANA_INPUTS");
             //immediately return data on analog inputs
             temp16 = 0;// getAnalog(0);  // Analogue input 1
             transmitBuffer[transmitBufferLength++] = 0xF1;
@@ -96,15 +102,18 @@ void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
             state = IDLE;
             break;
         case PROTO_SET_DIG_OUT:
+            Serial.println("[GVRET] Command: SET_DIG_OUT");
             state = SET_DIG_OUTPUTS;
             buff[0] = 0xF1;
             break;
         case PROTO_SETUP_CANBUS:
+            Serial.println("[GVRET] Command: SETUP_CANBUS");
             state = SETUP_CANBUS;
             step = 0;
             buff[0] = 0xF1;
             break;
         case PROTO_GET_CANBUS_PARAMS:
+            Serial.println("[GVRET] Command: GET_CANBUS_PARAMS");
             //immediately return data on canbus params
             transmitBuffer[transmitBufferLength++] = 0xF1;
             transmitBuffer[transmitBufferLength++] = 6;
@@ -121,6 +130,7 @@ void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
             state = IDLE;
             break;
         case PROTO_GET_DEV_INFO:
+            Serial.println("[GVRET] Command: GET_DEV_INFO");
             //immediately return device information
             transmitBuffer[transmitBufferLength++] = 0xF1;
             transmitBuffer[transmitBufferLength++] = 7;
@@ -133,44 +143,65 @@ void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
             state = IDLE;
             break;
         case PROTO_SET_SW_MODE:
+            Serial.println("[GVRET] Command: SET_SW_MODE");
             buff[0] = 0xF1;
             state = SET_SINGLEWIRE_MODE;
             step = 0;
             break;
         case PROTO_KEEPALIVE:
+        {
+            static uint32_t keepCnt = 0;
+            keepCnt++;
+            if ((keepCnt & 0x1F) == 1) //log roughly every 32nd keepalive to avoid Serial bottleneck
+            {
+                Serial.print("[GVRET] Command: KEEPALIVE #");
+                Serial.println(keepCnt);
+            }
             transmitBuffer[transmitBufferLength++] = 0xF1;
             transmitBuffer[transmitBufferLength++] = 0x09;
             transmitBuffer[transmitBufferLength++] = 0xDE;
             transmitBuffer[transmitBufferLength++] = 0xAD;
             state = IDLE;
             break;
+        }
         case PROTO_SET_SYSTYPE:
+            Serial.println("[GVRET] Command: SET_SYSTYPE");
             buff[0] = 0xF1;
             state = SET_SYSTYPE;
             step = 0;
             break;
         case PROTO_ECHO_CAN_FRAME:
+            Serial.println("[GVRET] Command: ECHO_CAN_FRAME");
             state = ECHO_CAN_FRAME;
             buff[0] = 0xF1;
             step = 0;
             break;
         case PROTO_GET_NUMBUSES:
+            Serial.println("[GVRET] Command: GET_NUMBUSES");
             transmitBuffer[transmitBufferLength++] = 0xF1;
             transmitBuffer[transmitBufferLength++] = 12;
             transmitBuffer[transmitBufferLength++] = SysSettings.numBuses;
             state = IDLE;
             break;
         case PROTO_GET_EXT_BUSES:
+            Serial.println("[GVRET] Command: GET_EXT_BUSES");
             transmitBuffer[transmitBufferLength++]  = 0xF1;
             transmitBuffer[transmitBufferLength++]  = 13;
-            for (int u = 2; u < 17; u++) transmitBuffer[transmitBufferLength++] = 0;
+            //Return 16 bytes describing external buses; send zeros for now to keep validation happy
+            for (int u = 0; u < 16; u++) transmitBuffer[transmitBufferLength++] = 0;
             step = 0;
             state = IDLE;
             break;
         case PROTO_SET_EXT_BUSES:
+            Serial.println("[GVRET] Command: SET_EXT_BUSES");
             state = SETUP_EXT_BUSES;
             step = 0;
             buff[0] = 0xF1;
+            break;
+        default:
+            Serial.print("[GVRET] WARNING: Unknown command byte: 0x");
+            Serial.println(in_byte, HEX);
+            state = IDLE;
             break;
         }
         break;
@@ -417,6 +448,7 @@ void GVRET_Comm_Handler::processIncomingByte(uint8_t in_byte)
                     //temp8 = checksumCalc(buff, step);
                     //if (temp8 == in_byte)
                     //{
+                    Serial.println("[GVRET] ECHO_CAN_FRAME complete, displaying frame");
                     toggleRXLED();
                     //if(isConnected) {
                     canManager.displayFrame(build_out_frame, 0);
